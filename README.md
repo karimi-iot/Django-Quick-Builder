@@ -1,7 +1,7 @@
 # Django Quick Builder
 
 ## Overview
-Django Quick Builder is a command-line utility designed to rapidly spin up a new Django or Django REST Framework project. It automatically handles virtual environment creation, required package installation, and initial project settings.
+Django Quick Builder is a command-line utility designed to rapidly spin up a new Django or Django REST Framework project. It automatically handles virtual environment creation, required package installation, creation of account app for use of having custom User and initial project settings.
 
 ## Why This Project?
 Manually setting up each new Django project was time-consuming. This script streamlines project creation, helping you get started faster by automating:
@@ -9,6 +9,7 @@ Manually setting up each new Django project was time-consuming. This script stre
 - Installing Django, python-dotenv, and optionally Django REST Framework + JWT
 - Initial project scaffolding
 - Environment variable handling and settings configuration
+- Make the 'account' App and have simple url routing to it.
 
 ## Requirements
 - Python 3.x
@@ -21,6 +22,10 @@ Manually setting up each new Django project was time-consuming. This script stre
 4. Select the type of project you want:
 - (1) Standard Django project  
 - (2) Django REST Framework project  
+5. Chose to have custom User:
+- (y) To have the custom User
+- (anything else) Simple Accounting
+
 
 Once it's done, you’ll have a fully functional Django project with environment variables, .gitignore, and optional DRF + JWT support.
 

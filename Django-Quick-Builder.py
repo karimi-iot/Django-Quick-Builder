@@ -103,7 +103,7 @@ def start_django_project(project_dir, project_name, venv_python):
     print(f"Django project '{project_name}' created in {project_dir}")
 
 
-def update_settings_file(project_dir, project_name, type_project):
+def update_settings_file(project_dir, project_name, type_project , account_use):
     """
     Updates the settings.py file so that the SECRET_KEY is read from the .env file.
     Inserts the necessary python-dotenv imports and calls at the top.
@@ -139,7 +139,7 @@ def update_settings_file(project_dir, project_name, type_project):
     # Replace SECRET_KEY, ALLOWED_HOSTS, and DEBUG assignments in settings.py.
     content, secret_count = re.subn(
         r"SECRET_KEY = .*\n",
-        f'SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")\n',
+        'SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")\n',
         content,
         flags=re.MULTILINE,
     )
@@ -165,12 +165,20 @@ def update_settings_file(project_dir, project_name, type_project):
 
     # Add the DRF settings if the project is a DRF project
     if type_project == 2:
-        content, drf_count = re.subn(
+        if account_use :
+            content, drf_count = re.subn(
             r"INSTALLED_APPS = \[",
-            "INSTALLED_APPS = [\n  #3rd party apps \n  'rest_framework',\n    'rest_framework_simplejwt',\n    # main apps \n    ",
+            "INSTALLED_APPS = [\n  #3rd party apps \n  'rest_framework',\n    'rest_framework_simplejwt',\n\t#local apps\n\t'account.apps.AccountConfig'\n    # main apps \n    ",
             content,
             flags=re.MULTILINE,
-        )
+            )
+        else :    
+            content, drf_count = re.subn(
+                r"INSTALLED_APPS = \[",
+                "INSTALLED_APPS = [\n  #3rd party apps \n  'rest_framework',\n    'rest_framework_simplejwt',\n    # main apps \n    ",
+                content,
+                flags=re.MULTILINE,
+            )
         # set the jwt as the main authentication class in the settings.py
         if "REST_FRAMEWORK" not in content:
             content += "\n\n #add the jwt as the default authentication class \nREST_FRAMEWORK = {\n    'DEFAULT_AUTHENTICATION_CLASSES': [\n        'rest_framework_simplejwt.authentication.JWTAuthentication',\n    ],\n}\n"
@@ -182,6 +190,9 @@ def update_settings_file(project_dir, project_name, type_project):
                 content,
                 flags=re.MULTILINE,
             )
+        
+        if account_use:
+            content += "\n\n# set default auth\nAUTH_USER_MODEL = 'account.User'"
 
         if drf_count and jwt_count:
             print("Added DRF settings to settings.py.")
@@ -193,6 +204,52 @@ def update_settings_file(project_dir, project_name, type_project):
         f.write(content)
     print("settings.py has been updated.")
 
+def make_user_app(project_dir,venv_python,type_project):
+    # make the project
+    subprocess.check_call([venv_python,"-m","django","startapp","account"],cwd=project_dir)
+    print("Created 'account' app in the project.")
+    # add the model
+    model_file = os.path.join(project_dir,"account","models.py")
+    with open(model_file,mode="w") as f:
+        f.write("from django.db import models\n")
+        f.write("from django.contrib.auth.models import AbstractUser\n")
+        f.write("class User(AbstractUser): \n\tpass \n")
+    print("set the simple 'User' in models of 'account' app.")
+    # add the urls for the jwt or empty for not jwt
+    urls_file = os.path.join(project_dir,"account","urls.py")
+    if type_project==2:
+        with open(urls_file,mode="w") as f:
+            f.write("from django.urls import path\nfrom rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView\nfrom .views import RegisterView , LogoutView , ProfileView\nurlpatterns = [\n\t# JWT authentication URLs  - Token ObtainPairView and TokenRefreshView  are provided by DRF-SimpleJWT library.  They generate JWT tokens for authenticated users.  The JWT tokens are then used for subsequent API requests.  The JWT token is passed in the Authorization header with the value 'Bearer <token>' where <token> is the JWT token.\n\tpath('token/', TokenObtainPairView.as_view(), name='login'),\n\tpath('token/refresh/', TokenRefreshView.as_view(), name='login_refresh'),\n\t]\n")
+    else:
+        with open(urls_file,mode="w") as f:
+            f.write("")
+    print("set the urls.py file for 'account'.")
+    # set the account data
+    config_urls_file = os.path.join(project_dir,"config","urls.py")
+    with open(config_urls_file,"r") as f:
+        content = f.read()
+    
+    content , urls_content = re.subn(
+        r"from django.urls import path",
+        "from django.urls import path , include\n",
+        content,
+        flags=re.MULTILINE
+    )
+    content, urls_content = re.subn(
+    r"path\s*\(\s*'admin/'\s*,\s*admin\.site\.urls\s*\),",
+    "path('admin/', admin.site.urls),\n    path('api/account/', include('account.urls')),",
+    content,
+    flags=re.MULTILINE
+    )
+    with open(config_urls_file,"w") as f:
+        f.write(content)
+    if urls_content :
+        print("urls of account is set to api/account/ .")
+    else :
+        print("failed to set the urls for account.")
+
+
+
 
 def main():
     type_project = int(
@@ -200,6 +257,7 @@ def main():
             "Select the type of project 1 for Django or 2 for Django Rest Framework: "
         )
     )
+    account_use = "y" == input("Do you need account management(having custom user)? 'y' for yes and anything else for no : ")
     parser = argparse.ArgumentParser(description="Simple Django Project Maker")
     parser.add_argument("project_name", help="Name for your new Django project")
     args = parser.parse_args()
@@ -212,7 +270,9 @@ def main():
     create_env_file(project_dir)
     create_gitignore(project_dir)
     start_django_project(project_dir, args.project_name, venv_python)
-    update_settings_file(project_dir, args.project_name, type_project)
+    if account_use:
+        make_user_app(project_dir,venv_python,type_project)
+    update_settings_file(project_dir, args.project_name, type_project,account_use)
 
 
 if __name__ == "__main__":

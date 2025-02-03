@@ -219,7 +219,7 @@ def make_user_app(project_dir,venv_python,type_project):
     urls_file = os.path.join(project_dir,"account","urls.py")
     if type_project==2:
         with open(urls_file,mode="w") as f:
-            f.write("from django.urls import path\nfrom rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView\nfrom .views import RegisterView , LogoutView , ProfileView\nurlpatterns = [\n\t# JWT authentication URLs  - Token ObtainPairView and TokenRefreshView  are provided by DRF-SimpleJWT library.  They generate JWT tokens for authenticated users.  The JWT tokens are then used for subsequent API requests.  The JWT token is passed in the Authorization header with the value 'Bearer <token>' where <token> is the JWT token.\n\tpath('token/', TokenObtainPairView.as_view(), name='login'),\n\tpath('token/refresh/', TokenRefreshView.as_view(), name='login_refresh'),\n\t]\n")
+            f.write("from django.urls import path\nfrom rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView\n\nurlpatterns = [\n\t# JWT authentication URLs  - Token ObtainPairView and TokenRefreshView  are provided by DRF-SimpleJWT library.  They generate JWT tokens for authenticated users.  The JWT tokens are then used for subsequent API requests.  The JWT token is passed in the Authorization header with the value 'Bearer <token>' where <token> is the JWT token.\n\tpath('token/', TokenObtainPairView.as_view(), name='login'),\n\tpath('token/refresh/', TokenRefreshView.as_view(), name='login_refresh'),\n\t]\n")
     else:
         with open(urls_file,mode="w") as f:
             f.write("")

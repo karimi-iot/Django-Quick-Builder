@@ -56,6 +56,7 @@ def install_packages(venv_python, type_project):
                 "python-dotenv",
                 "djangorestframework",
                 "djangorestframework-simplejwt",
+                "django-cors-headers",
             ]
         )
         print(
@@ -72,6 +73,7 @@ def create_env_file(project_dir):
             f.write(f"SECRET_KEY={SECRET_KEY}\n")
             f.write("ALLOWED_HOSTS=localhost,127.0.0.1\n")
             f.write("DEBUG=True\n")
+            f.write("CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173\n")
 
         print("Created .env file for environment variables.")
     else:
@@ -94,8 +96,10 @@ def create_gitignore(project_dir):
 
 
 def start_django_project(project_dir, project_name, venv_python):
-    # Use the virtual environment's Python to run Django's startproject.
-    # Using '.' as destination creates the project files in the project_dir.
+    """
+    Use the virtual environment's Python to run Django's startproject.
+    Using '.' as destination creates the project files in the project_dir.
+    """
     subprocess.check_call(
         [venv_python, "-m", "django", "startproject", "config", "."],
         cwd=project_dir,
@@ -149,12 +153,20 @@ def update_settings_file(project_dir, project_name, type_project , account_use):
         content,
         flags=re.MULTILINE,
     )
-    content, debug_count = re.subn(
-        r"DEBUG = .*\n",
-        "DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'\n",
-        content,
-        flags=re.MULTILINE,
-    )
+    if type_project==2:
+        content, debug_count = re.subn(
+            r"DEBUG = .*\n",
+            "DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'\n\n# Set the core headers \nCORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS','http://localhost:5173').split(',')",
+            content,
+            flags=re.MULTILINE,
+        )
+    else :
+        content, debug_count = re.subn(
+            r"DEBUG = .*\n",
+            "DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'\n",
+            content,
+            flags=re.MULTILINE,
+        )
 
     if secret_count and hosts_count and debug_count:
         print("Updated SECRET_KEY, ALLOWED_HOSTS, and DEBUG in settings.py.")
@@ -168,17 +180,24 @@ def update_settings_file(project_dir, project_name, type_project , account_use):
         if account_use :
             content, drf_count = re.subn(
             r"INSTALLED_APPS = \[",
-            "INSTALLED_APPS = [\n  #3rd party apps \n  'rest_framework',\n    'rest_framework_simplejwt',\n\t#local apps\n\t'account.apps.AccountConfig'\n    # main apps \n    ",
+            "INSTALLED_APPS = [\n\t# 3rd party apps \n\t'rest_framework',\n\t'rest_framework_simplejwt',\n\t'corsheaders',\n\t# Local apps\n\t'account.apps.AccountConfig',\n\t# Main apps \n",
             content,
             flags=re.MULTILINE,
             )
         else :    
             content, drf_count = re.subn(
                 r"INSTALLED_APPS = \[",
-                "INSTALLED_APPS = [\n  #3rd party apps \n  'rest_framework',\n    'rest_framework_simplejwt',\n    # main apps \n    ",
+                "INSTALLED_APPS = [\n\t# 3rd party apps \n\t'rest_framework',\n\t'rest_framework_simplejwt',\n\t'corsheaders',\n\t# Main apps \n",
                 content,
                 flags=re.MULTILINE,
             )
+        
+        # set the core headers
+        content, core_count = re.subn(
+            r"'django.contrib.sessions.middleware.SessionMiddleware',",
+            "'django.contrib.sessions.middleware.SessionMiddleware',\n\t# Core header middleware\n\t'corsheaders.middleware.CorsMiddleware',\n"
+        )
+
         # set the jwt as the main authentication class in the settings.py
         if "REST_FRAMEWORK" not in content:
             content += "\n\n #add the jwt as the default authentication class \nREST_FRAMEWORK = {\n    'DEFAULT_AUTHENTICATION_CLASSES': [\n        'rest_framework_simplejwt.authentication.JWTAuthentication',\n    ],\n}\n"
@@ -194,9 +213,10 @@ def update_settings_file(project_dir, project_name, type_project , account_use):
         if account_use:
             content += "\n\n# set default auth\nAUTH_USER_MODEL = 'account.User'"
 
-        if drf_count and jwt_count:
+        if drf_count and jwt_count and core_count:
             print("Added DRF settings to settings.py.")
             print("Added JWT as the main authentication class in settings.py.")
+            print("Added the corsheaders")
         else:
             print("Could not add DRF or JWT settings to settings.py. No changes made.")
 
@@ -247,7 +267,20 @@ def make_user_app(project_dir,venv_python,type_project):
         print("urls of account is set to api/account/ .")
     else :
         print("failed to set the urls for account.")
-
+    
+def django_migrations(project_dir, venv_python):
+    """
+    This function handle use of migrations on the django app.
+    """
+    subprocess.check_call(
+        [venv_python, "-m", "django", "makemigrations"],
+        cwd=project_dir,
+    )
+    subprocess.check_call(
+        [venv_python, "-m", "django", "migrate"],
+        cwd=project_dir,
+    )
+    print("Migrations has been done.")
 
 
 
@@ -273,6 +306,7 @@ def main():
     if account_use:
         make_user_app(project_dir,venv_python,type_project)
     update_settings_file(project_dir, args.project_name, type_project,account_use)
+    django_migrations(project_dir,venv_python)
 
 
 if __name__ == "__main__":
